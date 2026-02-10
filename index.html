@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生命之水抽籤機</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #eef2f7; display: flex; flex-direction: column; align-items: center; padding: 20px; color: #333; }
+        .card { background: white; padding: 30px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 380px; }
+        
+        h1 { font-size: 26px; color: #2c3e50; margin-bottom: 20px; }
+
+        /* 抽籤視窗 */
+        .slot-machine {
+            height: 80px;
+            overflow: hidden;
+            background: #fff;
+            border: 4px solid #48bb78;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .slot-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            transition: transform 3s cubic-bezier(0.12, 0, 0, 1);
+        }
+
+        .slot-item {
+            height: 80px;
+            line-height: 80px;
+            font-size: 26px;
+            font-weight: 800; /* 全程粗體 */
+            color: #2d3748;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* 最終結果連結樣式 */
+        #menu-link {
+            display: none; /* 初始隱藏 */
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #ebf8ff;
+            border: 1px dashed #4299e1;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #2b6cb0;
+            font-weight: bold;
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        button { 
+            font-size: 20px; font-weight: bold; padding: 15px 0; cursor: pointer; 
+            background: #48bb78; color: white; border: none; border-radius: 50px;
+            box-shadow: 0 6px 0 #2f855a; width: 100%; transition: all 0.1s;
+        }
+        button:active { transform: translateY(4px); box-shadow: 0 2px 0 #2f855a; }
+        button:disabled { background: #cbd5e0; box-shadow: 0 4px 0 #a0aec0; cursor: not-allowed; }
+
+        .tag-box { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 30px; max-width: 400px; }
+        .tag { background: #fff; border: 1px solid #e2e8f0; padding: 4px 12px; border-radius: 15px; font-size: 13px; font-weight: bold; color: #718096; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>🥤 今天的生命之水是...？</h1>
+        
+        <div class="slot-machine">
+            <ul id="drink-list" class="slot-list">
+                <li class="slot-item">準備開抽...</li>
+            </ul>
+        </div>
+
+        <button id="draw-btn" onclick="startDraw()">🎰 決定飲料！</button>
+
+        <a id="menu-link" href="#" target="_blank">🔍 查看店家菜單 / 地圖</a>
+    </div>
+
+    <div class="tag-box" id="tag-display"></div>
+
+    <script>
+        // 在這裡輸入你的飲料店名單與對應連結
+        const drinkData = [
+            { name: "五十嵐", url: "https://order.nidin.shop/menu/1609" },
+            { name: "可不可熟成紅茶", url: "https://kebuke.com/menu/" },
+            { name: "麻古茶坊", url:  "https://www.macutea.com.tw/upload_image/carte/menu_N.jpg?t=7572" },
+            { name: "迷客夏", url: "https://www.milksha.com/upload/price/2511041800430000002.pdf" },
+            { name: "得正", url: "https://order.nidin.shop/menu/15985" },
+            { name: "龜記茗品", url: "https://order.nidin.shop/menu/21273" },
+            { name: "清心福全", url: "https://order.nidin.shop/menu/19980" },
+            { name: "五桐號", url: "https://order.nidin.shop/menu/12792" },
+            { name: "青山", url: "https://peak-tea.com/tea-menu/" },
+            { name: "山頂潑", url: "https://shop.ichefpos.com/store/aZ_KMOOY/ordering" },
+            { name: "一沐日", url: "https://www.aniceholiday.com.tw/beverages/store/106" },
+            { name: "鶴茶樓", url: "https://order.nidin.shop/menu/19638" },
+            { name: "茶湯會", url: "https://order.nidin.shop/menu/23023" },
+            { name: "UNOCHA烏弄", url: "https://unocha.com.tw/drinks.php#drink-0" },
+            { name: "有飲", url: "https://www.youindrink.com/pages/menu" },
+            { name: "UG", url: "https://www.ubereats.com/tw/store/ug-%E6%96%B0%E8%8E%8A%E5%B9%B8%E7%A6%8F%E5%BA%97/qtm0QjBWW1CQxKT__cGAHw?diningMode=DELIVERY&surfaceName=" },
+            { name: "天仁CHAFFEE", url: "https://order.nidin.shop/menu/26707" },
+            { name: "Mr.Wish", url: "https://order.nidin.shop/menu/20064" },
+            { name: "沐茶寺", url: "https://www.ubereats.com/tw/store/%E6%B2%90%E8%8D%BC%E5%AF%BA-%E8%87%BA%E7%81%A3%E7%B2%BE%E5%93%81%E8%8C%B6%E9%A3%B2%E5%B0%88%E9%96%80-%E8%98%86%E6%B4%B2%E5%BA%97/mQwLROo0UJiiGlgfvGY3kw?diningMode=DELIVERY&surfaceName=" },
+            { name: "誠字號韻味茶", url: "https://www.ubereats.com/tw/store/%E8%AA%A0%E5%AD%97%E8%99%9F%E9%9F%BB%E5%91%B3%E8%8C%B6-%E6%96%B0%E8%8E%8A%E5%BA%97/Bjcjtl7QXbyuDL6_2GcgOw?diningMode=DELIVERY&surfaceName=" },
+            { name: "老賴茶棧", url: "https://www.ubereats.com/tw/store/%E8%80%81%E8%B3%B4%E8%8C%B6%E6%A3%A7-%E6%96%B0%E8%8E%8A%E5%B9%B8%E7%A6%8F%E5%BA%97/zJaIMJwAWYKdhQ0rDs_FuQ?diningMode=DELIVERY&surfaceName=" },
+            { name: "七盞茶", url: "https://www.ubereats.com/tw/store/%E4%B8%83%E7%9B%9E%E8%8C%B6-%E6%96%B0%E8%8E%8A%E5%8C%96%E6%88%90%E5%BA%97/SQQYqVr3SVKbbkV1SzioZQ?diningMode=DELIVERY&surfaceName=" },
+            { name: "再睡五分鐘", url: "https://www.ubereats.com/tw/store/%E5%86%8D%E7%9D%A15%E5%88%86%E9%90%98-%E6%96%B0%E8%8E%8A%E5%B9%B8%E7%A6%8F%E5%BA%97/5fVn5vGqVKClBlSpAgTYsg?diningMode=DELIVERY&surfaceName=" },
+            { name: "小茶齋", url: "https://order.nidin.shop/menu/18202" },
+            { name: "萬波", url: "https://wanpotea.com/upload_image/recommend/recommend_1765.jpg" },
+            { name: "先喝道", url: "https://www.taotaotea.com.tw/pages/menu" },
+            { name: "珍煮丹", url: "https://www.truedan.com.tw/product.php#gallery-1" },
+            { name: "龍角", url: "https://dragonhorn.com.tw/menu" },
+        ];
+
+        const slotList = document.getElementById('drink-list');
+        const menuLink = document.getElementById('menu-link');
+        const itemHeight = 80;
+
+        function init() {
+            document.getElementById('tag-display').innerHTML = drinkData.map(d => `<span class="tag">${d.name}</span>`).join('');
+        }
+
+        function startDraw() {
+            const btn = document.getElementById('draw-btn');
+            btn.disabled = true;
+            menuLink.style.display = 'none'; // 重新抽時先隱藏連結
+
+            // 建立長清單
+            let displayList = [];
+            for (let i = 0; i < 6; i++) {
+                displayList = displayList.concat(drinkData.slice().sort(() => Math.random() - 0.5));
+            }
+            
+            const finalIndex = Math.floor(Math.random() * drinkData.length);
+            const finalChoice = drinkData[finalIndex];
+            displayList.push(finalChoice);
+
+            // 渲染
+            slotList.innerHTML = displayList.map(item => `<li class="slot-item">${item.name}</li>`).join('');
+            
+            // 重置位置
+            slotList.style.transition = 'none';
+            slotList.style.transform = 'translateY(0)';
+            slotList.offsetHeight; 
+
+            // 啟動動畫
+            setTimeout(() => {
+                slotList.style.transition = 'transform 3s cubic-bezier(0.1, 0, 0, 1)';
+                slotList.style.transform = `translateY(-${(displayList.length - 1) * itemHeight}px)`;
+            }, 50);
+
+            // 結束後顯示連結
+            setTimeout(() => {
+                btn.disabled = false;
+                slotList.lastElementChild.style.color = "#48bb78";
+                
+                // 設定連結與顯示
+                menuLink.href = finalChoice.url;
+                menuLink.style.display = 'block';
+                menuLink.innerHTML = `👉 查看「${finalChoice.name}」菜單`;
+            }, 3200);
+        }
+
+        init();
+    </script>
+</body>
+</html>
